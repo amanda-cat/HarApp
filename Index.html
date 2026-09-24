@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>PPUC — HAR!</title>
+
+<!-- ============================================================
+  HAR! GAME — single file, no build step.
+  Before this works you MUST fill in the two lines below,
+  marked "PASTE HERE". See SETUP-GUIDE.md for exactly where
+  to find these in Supabase.
+============================================================= -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+<style>
+  :root{
+    --bg:#F7F4EE;
+    --card:#FFFFFF;
+    --ink:#2B2A28;
+    --muted:#8B887F;
+    --line:#EAE6DC;
+    --gold:#D4A24E;
+    --gold-soft:#F3E6CC;
+    --protect-bg:#DCEEDD;
+    --protect-ink:#2F7A3C;
+    --attack-bg:#F8DCDC;
+    --attack-ink:#C0392B;
+    --shadow:0 8px 24px rgba(43,42,40,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  h1,h2,h3,.display{font-family:'Fredoka',sans-serif;}
+  #app{max-width:480px;margin:0 auto;padding:16px 16px 48px;}
+
+  /* ---------- top bar ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 18px;}
+  .brand{display:flex;flex-direction:column;line-height:1.05;}
+  .brand .name{font-family:'Fredoka';font-weight:700;font-size:22px;letter-spacing:0.5px;}
+  .brand .tag{font-size:11px;color:var(--muted);letter-spacing:0.5px;}
+  .fund-chip{
+    background:var(--ink);color:#fff;border-radius:999px;
+    padding:8px 16px;text-align:center;box-shadow:var(--shadow);
+  }
+  .fund-chip .label{font-size:9px;opacity:0.7;letter-spacing:1px;text-transform:uppercase;}
+  .fund-chip .amount{font-family:'Fredoka';font-weight:600;font-size:18px;}
+
+  /* ---------- cards ---------- */
+  .card{background:var(--card);border-radius:22px;box-shadow:var(--shadow);padding:18px;margin-bottom:16px;border:1px solid var(--line);}
+
+  /* ---------- leaderboard ---------- */
+  .lb-title{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px 2px;font-weight:600;}
+  .lb-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-radius:12px;}
+  .lb-row.me{background:var(--gold-soft);}
+  .lb-rank{width:22px;text-align:center;font-family:'Fredoka';font-weight:600;color:var(--muted);font-size:14px;}
+  .lb-rank.gold{color:var(--gold);font-size:17px;}
+  .lb-name{flex:1;font-weight:600;font-size:14.5px;}
+  .lb-sub{font-size:11px;color:var(--muted);}
+  .lb-flames{font-size:12px;margin-right:2px;}
+  .lb-count{font-family:'Fredoka';font-weight:600;font-size:16px;}
+
+  /* ---------- my cat panel ---------- */
+  .mycat-card{text-align:center;position:relative;overflow:hidden;padding-top:22px;}
+  .mycat-name{font-family:'Fredoka';font-weight:600;font-size:20px;}
+  .mycat-stats{color:var(--muted);font-size:13px;margin-top:2px;}
+  .mycat-stats b{color:var(--ink);}
+  .cat-wrap{position:relative;width:220px;height:220px;margin:14px auto 4px;display:flex;align-items:center;justify-content:center;}
+  .cat-ring{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,var(--gold-soft) 0%,transparent 70%);animation:pulseRing 2.2s ease-in-out infinite;}
+  @keyframes pulseRing{0%,100%{transform:scale(0.92);opacity:0.7;}50%{transform:scale(1.04);opacity:1;}}
+  .cat-img{position:relative;width:180px;height:auto;cursor:pointer;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 10px 14px rgba(0,0,0,0.15));transition:transform 120ms ease;}
+  .cat-img:active{transform:scale(0.94);}
+  .tap-hint{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:6px;font-weight:600;}
+  .float-pop{position:absolute;left:50%;top:40%;transform:translateX(-50%);font-family:'Fredoka';font-weight:700;font-size:26px;pointer-events:none;animation:floatUp 1s ease-out forwards;}
+  @keyframes floatUp{0%{opacity:0;transform:translate(-50%,10px) scale(0.8);}20%{opacity:1;transform:translate(-50%,-10px) scale(1.1);}100%{opacity:0;transform:translate(-50%,-70px) scale(1);}}
+
+  /* ---------- attack row (Har Generator only) ---------- */
+  .attack-title{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--attack-ink);margin:0 0 10px 2px;font-weight:600;}
+  .attack-grid{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;}
+  .attack-target{flex:0 0 auto;width:74px;text-align:center;cursor:pointer;}
+  .attack-target img{width:56px;border-radius:50%;background:var(--attack-bg);padding:6px;border:2px solid var(--attack-bg);}
+  .attack-target:active img{transform:scale(0.92);}
+  .attack-target .n{font-size:10.5px;margin-top:4px;font-weight:600;}
+
+  /* ---------- player select ---------- */
+  .select-title{font-family:'Fredoka';font-size:22px;font-weight:600;text-align:center;margin:30px 0 6px;}
+  .select-sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px;}
+  .select-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .select-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 8px;text-align:center;box-shadow:var(--shadow);cursor:pointer;}
+  .select-card img{width:56px;}
+  .select-card .n{font-weight:600;font-size:13.5px;margin-top:6px;}
+  .select-card .r{font-size:10px;color:var(--attack-ink);text-transform:uppercase;letter-spacing:0.5px;}
+
+  .switch-link{text-align:center;color:var(--muted);font-size:12px;margin-top:10px;text-decoration:underline;cursor:pointer;}
+
+  /* ---------- alert overlay ---------- */
+  #alert-layer{position:fixed;top:0;left:0;right:0;display:flex;justify-content:center;padding-top:18px;z-index:50;pointer-events:none;}
+  .alert-box{
+    font-family:'Fredoka';font-weight:600;padding:14px 22px;border-radius:16px;
+    box-shadow:var(--shadow);max-width:88%;text-align:center;
+    animation:alertIn 220ms ease, alertOut 260ms ease 1.35s forwards;
+  }
+  .alert-box .big{font-size:19px;}
+  .alert-box .small{font-size:12px;font-weight:400;font-family:'Inter';margin-top:2px;}
+  .alert-caught{background:var(--gold-soft);color:#7A5A16;border:1px solid var(--gold);}
+  .alert-protected{background:var(--protect-bg);color:var(--protect-ink);}
+  .alert-attacked{background:var(--attack-bg);color:var(--attack-ink);}
+  .alert-info{background:var(--card);color:var(--muted);border:1px solid var(--line);}
+  @keyframes alertIn{from{opacity:0;transform:translateY(-14px);}to{opacity:1;transform:translateY(0);}}
+  @keyframes alertOut{to{opacity:0;transform:translateY(-10px);}}
+
+  .muted-note{color:var(--muted);font-size:11px;text-align:center;margin-top:18px;line-height:1.5;}
+  .hidden{display:none !important;}
+
+  /* ---------- rules button + modal ---------- */
+  .rules-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--ink);
+    cursor:pointer;box-shadow:var(--shadow);
+  }
+  .rules-btn.center{margin:18px auto 0;}
+  .rules-btn.icon-only{padding:8px 10px;font-size:15px;}
+  #rules-overlay{
+    position:fixed;inset:0;background:rgba(43,42,40,0.45);z-index:80;
+    display:flex;align-items:flex-end;justify-content:center;
+  }
+  #rules-modal{
+    background:var(--card);border-radius:22px 22px 0 0;max-width:480px;width:100%;
+    max-height:82vh;overflow-y:auto;padding:22px 20px 28px;box-shadow:var(--shadow);
+  }
+  #rules-modal h2{font-size:19px;margin:0 0 4px;}
+  #rules-modal .rules-sub{color:var(--muted);font-size:12.5px;margin-bottom:16px;}
+  .rules-step{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .rules-step:last-of-type{border-bottom:none;}
+  .rules-step .num{font-family:'Fredoka';font-weight:600;color:var(--gold);font-size:14px;width:20px;flex:none;}
+  .rules-step .txt{font-size:13.5px;line-height:1.45;}
+  .rules-step .txt b{font-weight:600;}
+  .rules-close{
+    display:block;width:100%;margin-top:18px;background:var(--ink);color:#fff;
+    border:none;border-radius:14px;padding:13px;font-family:'Fredoka';font-weight:600;
+    font-size:14.5px;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="alert-layer"></div>
+
+<div id="rules-overlay" class="hidden">
+  <div id="rules-modal">
+    <h2>📖 How to Play</h2>
+    <div class="rules-sub">Har happens. We tap. We win.</div>
+
+    <div class="rules-step"><div class="num">1</div><div class="txt">Someone in real life says <b>"Har?"</b> — the moment you hear it, grab your phone.</div></div>
+    <div class="rules-step"><div class="num">2</div><div class="txt"><b>Tap your own cat</b> as fast as you can. First person to tap wins that round: <b>+1 Har</b>, and <b>$1</b> goes into the shared Har Fund.</div></div>
+    <div class="rules-step"><div class="num">3</div><div class="txt">Only the <b>first tap</b> counts. Everyone else's tap that round does nothing — no penalty, just no point.</div></div>
+    <div class="rules-step"><div class="num">4</div><div class="txt">For <b>3 seconds</b> after a Har is caught, the <b>Har Generator</b> 👹 can tap other players' cats to attack them: <b>−1 Har</b>, no money added.</div></div>
+    <div class="rules-step"><div class="num">5</div><div class="txt">If you tap your own cat before the Har Generator gets to it, you're <b>🛡️ Protected</b> — the attack does nothing.</div></div>
+    <div class="rules-step"><div class="num">6</div><div class="txt">Your score can never go below <b>0</b>, no matter how many times you're attacked.</div></div>
+    <div class="rules-step"><div class="num">7</div><div class="txt"><b>🔥 Streaks</b> = catching Hars back-to-back. Getting attacked or losing a round to someone else resets your streak, not your total.</div></div>
+    <div class="rules-step"><div class="num">8</div><div class="txt">Every <b>5 Hars</b>, your cat gets visibly chunkier. Everyone can see whose cat is the fattest.</div></div>
+    <div class="rules-step"><div class="num">9</div><div class="txt">Everything resets fresh every <b>Monday</b> — new week, new leaderboard, new chonk.</div></div>
+    <div class="rules-step"><div class="num">10</div><div class="txt">The <b>Har Fund</b> is real $ the group uses for lunch/tea — it only grows from successful catches, never from attacks.</div></div>
+
+    <button class="rules-close" id="rules-close-btn">Got it, let's play</button>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- ===================== PLAYER SELECT SCREEN ===================== -->
+  <div id="screen-select">
+    <div class="select-title">WHO ARE YOU? 🐱</div>
+    <div class="select-sub">Pick your cat — this device will remember you</div>
+    <div class="select-grid" id="select-grid"></div>
+    <div style="text-align:center;"><span class="rules-btn center" id="rules-btn-select">📖 How to Play</span></div>
+  </div>
+
+  <!-- ===================== DASHBOARD SCREEN ===================== -->
+  <div id="screen-game" class="hidden">
+    <div class="topbar">
+      <div class="brand">
+        <div class="name">PPUC</div>
+        <div class="tag">PRETTY USELESS CLUB</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="rules-btn icon-only" id="rules-btn-game">📖</span>
+        <div class="fund-chip">
+          <div class="label">Har Fund</div>
+          <div class="amount" id="fund-amount">$0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="lb-title">🏆 This Week's Leaderboard</div>
+      <div id="leaderboard"></div>
+    </div>
+
+    <div class="card mycat-card">
+      <div class="mycat-name" id="mycat-name">—</div>
+      <div class="mycat-stats"><b id="mycat-count">0</b> Hars &nbsp;•&nbsp; <span id="mycat-flames"></span></div>
+      <div class="cat-wrap">
+        <div class="cat-ring"></div>
+        <img src="cat-normal.jpg" class="cat-img" id="my-cat-img" alt="tap your cat">
+      </div>
+      <div class="tap-hint">Tap the cat when you hear "Har?"</div>
+    </div>
+
+    <div class="card hidden" id="attack-card">
+      <div class="attack-title">😈 Attack a cat (before they protect!)</div>
+      <div class="attack-grid" id="attack-grid"></div>
+    </div>
+
+    <div class="switch-link" id="switch-link">Not you? Switch player</div>
+    <div class="muted-note">Har happens. We tap. We win. 🐾</div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// 1. CONFIG — PASTE YOUR SUPABASE DETAILS HERE
+// ============================================================
+const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
+const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_PUBLIC_KEY_HERE";
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============================================================
+// 2. STATE
+// ============================================================
+let players = [];          // all rows from `players`
+let playersById = {};
+let scores = {};           // player_id -> {har_count, current_streak, best_streak}
+let weekKey = null;
+let harFund = 0;
+let myId = localStorage.getItem('har_player_id');
+
+// ============================================================
+// 3. SOUND (synthesised, no audio file needed)
+// ============================================================
+let audioCtx;
+function beep(freqs, dur=0.09){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    let t = audioCtx.currentTime;
+    freqs.forEach((f,i)=>{
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.18, t+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t+dur+0.02);
+      t += dur*0.75;
+    });
+  }catch(e){}
+}
+const sounds = {
+  caught: ()=>beep([520,780,1040]),
+  protected: ()=>beep([600,760]),
+  attacked: ()=>beep([300,190]),
+};
+
+// ============================================================
+// 4. ALERTS
+// ============================================================
+function showAlert(kind, big, small){
+  const layer = document.getElementById('alert-layer');
+  const box = document.createElement('div');
+  box.className = 'alert-box alert-' + kind;
+  box.innerHTML = `<div class="big">${big}</div>` + (small ? `<div class="small">${small}</div>` : '');
+  layer.appendChild(box);
+  setTimeout(()=>box.remove(), 1650);
+}
+
+function floatPop(text){
+  const wrap = document.querySelector('.cat-wrap');
+  const el = document.createElement('div');
+  el.className = 'float-pop';
+  el.textContent = text;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 1000);
+}
+
+// ============================================================
+// 5. LOAD + RENDER
+// ============================================================
+async function loadPlayers(){
+  const { data, error } = await sb.from('players').select('*').order('sort_order');
+  if(error){ showAlert('info','Could not load players','Check your Supabase URL/key in index.html'); return; }
+  players = data || [];
+  playersById = Object.fromEntries(players.map(p=>[p.id,p]));
+}
+
+async function ensureWeek(){
+  const { data, error } = await sb.rpc('get_or_create_week');
+  if(error){ showAlert('info','Setup needed','Run supabase-setup.sql in the SQL Editor'); return; }
+  weekKey = data;
+}
+
+async function loadScores(){
+  const { data, error } = await sb.from('player_scores').select('*').eq('week_key', weekKey);
+  if(error) return;
+  scores = {};
+  (data||[]).forEach(r=>scores[r.player_id]=r);
+  render();
+}
+
+async function loadFund(){
+  const { data } = await sb.from('weekly_games').select('har_fund').eq('week_key', weekKey).single();
+  harFund = data ? data.har_fund : 0;
+  document.getElementById('fund-amount').textContent = '$' + harFund;
+}
+
+function fatnessLevel(count){
+  if(count>=25) return 5;
+  if(count>=20) return 4;
+  if(count>=15) return 3;
+  if(count>=10) return 2;
+  if(count>=5) return 1;
+  return 0;
+}
+function flames(n){
+  if(n<=0) return '<span style="color:var(--muted)">no streak yet</span>';
+  const capped = Math.min(n,6);
+  return '🔥'.repeat(capped) + (n>6 ? ' ×'+n : '');
+}
+
+function render(){
+  // leaderboard, ranked by har_count then best_streak
+  const rows = players
+    .filter(p=>scores[p.id])
+    .map(p=>({...p, ...scores[p.id]}))
+    .sort((a,b)=> b.har_count - a.har_count || b.best_streak - a.best_streak);
+
+  const medals = ['🥇','🥈','🥉'];
+  document.getElementById('leaderboard').innerHTML = rows.map((r,i)=>`
+    <div class="lb-row ${r.id===myId?'me':''}">
+      <div class="lb-rank ${i<3?'gold':''}">${medals[i] || (i+1)}</div>
+      <div>
+        <div class="lb-name">${r.name}${r.role==='har_generator' ? ' 👹' : ''}</div>
+        <div class="lb-sub"><span class="lb-flames">${flames(r.current_streak)}</span></div>
+      </div>
+      <div style="flex:1"></div>
+      <div class="lb-count">${r.har_count}</div>
+    </div>
+  `).join('');
+
+  // my cat panel
+  const me = scores[myId];
+  const meInfo = playersById[myId];
+  if(me && meInfo){
+    document.getElementById('mycat-name').textContent = meInfo.name;
+    document.getElementById('mycat-count').textContent = me.har_count;
+    document.getElementById('mycat-flames').innerHTML = flames(me.current_streak);
+    const lvl = fatnessLevel(me.har_count);
+    const scale = 1 + lvl*0.08;
+    document.getElementById('my-cat-img').style.transform = `scale(${scale})`;
+  }
+
+  // attack row — only for har_generator role, targets = everyone else
+  const attackCard = document.getElementById('attack-card');
+  if(meInfo && meInfo.role === 'har_generator'){
+    attackCard.classList.remove('hidden');
+    const targets = players.filter(p=>p.id !== myId && p.role !== 'har_generator');
+    document.getElementById('attack-grid').innerHTML = targets.map(t=>`
+      <div class="attack-target" data-id="${t.id}">
+        <img src="cat-normal.jpg" alt="${t.name}">
+        <div class="n">${t.name}</div>
+      </div>
+    `).join('');
+    document.querySelectorAll('.attack-target').forEach(el=>{
+      el.addEventListener('click', ()=>attack(el.dataset.id));
+    });
+  } else {
+    attackCard.classList.add('hidden');
+  }
+}
+
+// ============================================================
+// 6. ACTIONS
+// ============================================================
+async function tap(){
+  if(!myId) return;
+  const img = document.getElementById('my-cat-img');
+  img.src = 'cat-tap.gif';
+  setTimeout(()=>{ img.src = 'cat-normal.jpg'; }, 650);
+
+  const { data, error } = await sb.rpc('tap_cat', { p_player_id: myId });
+  if(error){ showAlert('info','Something went wrong','Check the console'); console.error(error); return; }
+
+  if(data.result === 'caught'){
+    sounds.caught();
+    floatPop('+1 HAR');
+    const name = playersById[myId]?.name || 'You';
+    showAlert('caught', `🚨 ${name.toUpperCase()} CAUGHT IT!`, '+1 HAR · Har Fund +$1');
+  } else if(data.result === 'protected'){
+    sounds.protected();
+    showAlert('protected', '🛡️ PROTECTED!', 'You were faster');
+  }
+  // already_protected -> silent, no spam
+}
+
+async function attack(targetId){
+  const { data, error } = await sb.rpc('attack_cat', { p_attacker_id: myId, p_target_id: targetId });
+  if(error){ console.error(error); return; }
+  const name = playersById[targetId]?.name || 'them';
+
+  if(data.result === 'attacked'){
+    sounds.attacked();
+    showAlert('attacked', `💀 HAR ATTACK!`, `${name} −1 HAR`);
+  } else if(data.result === 'protected'){
+    showAlert('protected', `🛡️ ${name} was protected`, 'Too slow!');
+  } else if(data.result === 'no_window'){
+    showAlert('info', 'No Har happening right now', 'Wait for someone to catch one first');
+  } else if(data.result === 'already_attacked'){
+    showAlert('info', `${name} was already attacked`, 'this round');
+  }
+}
+
+// ============================================================
+// 7. PLAYER SELECT SCREEN
+// ============================================================
+function renderSelectScreen(){
+  document.getElementById('select-grid').innerHTML = players.map(p=>`
+    <div class="select-card" data-id="${p.id}">
+      <img src="cat-normal.jpg" alt="${p.name}">
+      <div class="n">🐱 ${p.name}</div>
+      ${p.role==='har_generator' ? '<div class="r">Har Generator</div>' : ''}
+    </div>
+  `).join('');
+  document.querySelectorAll('.select-card').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      myId = el.dataset.id;
+      localStorage.setItem('har_player_id', myId);
+      showGameScreen();
+    });
+  });
+}
+
+function showGameScreen(){
+  document.getElementById('screen-select').classList.add('hidden');
+  document.getElementById('screen-game').classList.remove('hidden');
+  render();
+}
+function showSelectScreen(){
+  document.getElementById('screen-game').classList.add('hidden');
+  document.getElementById('screen-select').classList.remove('hidden');
+}
+
+// ---------- rules modal ----------
+function openRules(){ document.getElementById('rules-overlay').classList.remove('hidden'); }
+function closeRules(){ document.getElementById('rules-overlay').classList.add('hidden'); }
+document.getElementById('rules-btn-select').addEventListener('click', openRules);
+document.getElementById('rules-btn-game').addEventListener('click', openRules);
+document.getElementById('rules-close-btn').addEventListener('click', closeRules);
+document.getElementById('rules-overlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'rules-overlay') closeRules();
+});
+
+document.getElementById('switch-link').addEventListener('click', ()=>{
+  localStorage.removeItem('har_player_id');
+  myId = null;
+  showSelectScreen();
+});
+document.getElementById('my-cat-img').addEventListener('click', tap);
+
+// ============================================================
+// 8. REALTIME
+// ============================================================
+function subscribeRealtime(){
+  sb.channel('har-room-'+weekKey)
+    .on('postgres_changes', { event:'*', schema:'public', table:'player_scores', filter:`week_key=eq.${weekKey}` }, loadScores)
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'weekly_games', filter:`week_key=eq.${weekKey}` }, loadFund)
+    .subscribe();
+}
+
+// ============================================================
+// 9. BOOT
+// ============================================================
+async function boot(){
+  await loadPlayers();
+  await ensureWeek();
+  if(!weekKey) return;
+  await loadScores();
+  await loadFund();
+  subscribeRealtime();
+
+  if(myId && playersById[myId]){
+    showGameScreen();
+  } else {
+    renderSelectScreen();
+    showSelectScreen();
+    // first time this device has ever opened the app -> show rules automatically
+    if(!localStorage.getItem('har_seen_rules')){
+      openRules();
+      localStorage.setItem('har_seen_rules', '1');
+    }
+  }
+  renderSelectScreen(); // keep select grid fresh in case they switch later
+}
+boot();
+</script>
+</body>
+</html>
