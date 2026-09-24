@@ -102,8 +102,6 @@
   .select-card .r{font-size:10px;color:var(--attack-ink);text-transform:uppercase;letter-spacing:0.5px;}
 
   .switch-link{text-align:center;color:var(--muted);font-size:12px;margin-top:10px;text-decoration:underline;cursor:pointer;}
-  .reset-link{text-align:center;color:var(--muted);font-size:10.5px;margin-top:10px;text-decoration:underline;cursor:pointer;opacity:0.65;}
-  .reset-link.confirming{color:var(--attack-ink);opacity:1;font-weight:600;text-decoration:none;}
 
   /* ---------- alert overlay ---------- */
   #alert-layer{position:fixed;top:0;left:0;right:0;display:flex;justify-content:center;padding-top:18px;z-index:50;pointer-events:none;}
@@ -218,7 +216,6 @@
         <img src="cat-normal.jpg" class="cat-img" id="my-cat-img" alt="tap your cat">
       </div>
       <div class="tap-hint">Tap the cat when you hear "Har?"</div>
-      <div class="reset-link" id="reset-link">Reset my Har count</div>
     </div>
 
     <div class="card hidden" id="attack-card">
@@ -238,6 +235,8 @@
 // ============================================================
 const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
 const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_PUBLIC_KEY_HERE";
+const SUPABASE_URL = "https://bycrngqrbkoikprtuifr.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5Y3JuZ3FyYmtvaWtwcnR1aWZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNTQ2MjAsImV4cCI6MjEwNTgzMDYyMH0.8xa2wELXt5NB8PMCvcwOqlkwyaaVgW68NShDUe6eNXs";
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -401,7 +400,7 @@ async function tap(){
   if(!myId) return;
   const img = document.getElementById('my-cat-img');
   img.src = 'cat-tap.gif';
-  setTimeout(()=>{ img.src = 'cat-normal.jpg'; }, 2300); // matches cat-tap.gif's full loop (~2.28s)
+  setTimeout(()=>{ img.src = 'cat-normal.jpg'; }, 650);
 
   const { data, error } = await sb.rpc('tap_cat', { p_player_id: myId });
   if(error){ showAlert('info','Something went wrong','Check the console'); console.error(error); return; }
@@ -473,32 +472,6 @@ document.getElementById('rules-btn-game').addEventListener('click', openRules);
 document.getElementById('rules-close-btn').addEventListener('click', closeRules);
 document.getElementById('rules-overlay').addEventListener('click', (e)=>{
   if(e.target.id === 'rules-overlay') closeRules();
-});
-
-// ---------- reset my own Har count ----------
-let resetArmed = false, resetTimer = null;
-document.getElementById('reset-link').addEventListener('click', async ()=>{
-  const el = document.getElementById('reset-link');
-  if(!resetArmed){
-    resetArmed = true;
-    el.textContent = 'Tap again to confirm reset';
-    el.classList.add('confirming');
-    resetTimer = setTimeout(()=>{
-      resetArmed = false;
-      el.textContent = 'Reset my Har count';
-      el.classList.remove('confirming');
-    }, 3000);
-    return;
-  }
-  // second tap within 3s -> actually reset
-  clearTimeout(resetTimer);
-  resetArmed = false;
-  el.textContent = 'Reset my Har count';
-  el.classList.remove('confirming');
-
-  const { error } = await sb.rpc('reset_my_score', { p_player_id: myId });
-  if(error){ console.error(error); showAlert('info','Could not reset','Check the console'); return; }
-  showAlert('info', '↺ Your Har count is reset', 'Streak cleared too');
 });
 
 document.getElementById('switch-link').addEventListener('click', ()=>{
